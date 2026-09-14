@@ -121,8 +121,13 @@ pkgs_dep_keys() {
 
   local k
   for p in $staged; do
-    sed -n 's:.*<\(buildtool_depend\|build_depend\|depend\)>[[:space:]]*\([^< ]*\)[[:space:]]*</.*:\2:p' \
-      "$d/$p/package.xml"
+    # Comments stripped FIRST: a dep a package deliberately commented out
+    # (mav_controllers_ros' '<!-- <depend>mavros</depend> -->') is not a dep,
+    # but a line-based sed cannot tell -- it kept resolving mavros for years
+    # and the day packages.ros.org dropped the binary, every image build died
+    # on a package nothing actually declared.
+    perl -0777 -pe 's/<!--.*?-->//gs' "$d/$p/package.xml" |
+      sed -n 's:.*<\(buildtool_depend\|build_depend\|depend\)>[[:space:]]*\([^< ]*\)[[:space:]]*</.*:\2:p'
   done | sort -u | while read -r k; do
     [ -n "$k" ] || continue
     case "$k" in
